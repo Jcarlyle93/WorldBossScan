@@ -1,0 +1,8 @@
+## Interface: 11501
+## Title: WorldBossScan
+## Notes: Scans for world bosses and manages guild invites
+## Author: Indelible@Discord
+## Version: 1.0
+## SavedVariables: WorldBossScanDB
+
+WorldBossScan.lua
