@@ -159,6 +159,21 @@ Background:SetPoint("BOTTOMLEFT", 3, 3)
 Background:SetPoint("TOPRIGHT", -3, -3)
 Background:SetTexCoord(0, 1, 0, 0.25)
 
+-- Hook into the Logout and Quit functions
+local function HookLogoutFunctions()
+    hooksecurefunc("Logout", function()
+        isLoggingOut = true
+    end)
+
+    hooksecurefunc("Quit", function()
+        isLoggingOut = true
+    end)
+
+    hooksecurefunc("CancelLogout", function()
+        isLoggingOut = false
+    end)
+end
+
 -- Sound handling
 local lastPlayedSound = 0
 local function PlaySoundAlert()
@@ -303,7 +318,8 @@ frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterEvent("CHAT_MSG_ADDON")
 frame:RegisterEvent("CHAT_MSG_MONSTER_YELL")
 frame:RegisterEvent("PLAYER_LEAVING_WORLD")
-frame:RegisterEvent("PLAYER_LOGOUT")
+frame:RegisterEvent("LOGOUT_CANCEL")
+HookLogoutFunctions()
 
 -- Register addon prefix
 C_ChatInfo.RegisterAddonMessagePrefix("WorldBossScan")
@@ -346,10 +362,9 @@ frame:SetScript("OnEvent", function(self, event, ...)
                 end
             end
         end    
-    elseif event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_LOGOUT" then
-        isLoggingOut = true  
-    elseif event == "LOGOUT_CANCELED" then
-        isLoggingOut = false
+    elseif event == "LOGOUT_CANCEL" then
+        print("LOGOUT_CANCEL event fired!")
+        isLoggingOut = false  
     end
 end)
 
