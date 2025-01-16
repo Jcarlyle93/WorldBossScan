@@ -1,15 +1,4 @@
--- Define our world boss list
 local WorldBosses = {
-    ["Azuregos"] = true,
-    ["Lord Kazzak"] = true,
-    ["Emeriss"] = true,
-    ["Lethon"] = true,
-    ["Taerar"] = true,
-    ["Ysondre"] = true,
-    ["Undertaker Mordo"] = true  -- Test NPC
-}
-
-local WorldBossIDs = {
     ["Azuregos"] = 6109,
     ["Lord Kazzak"] = 12397,
     ["Emeriss"] = 14889,
@@ -61,6 +50,8 @@ local BossYells = {
         }
     }
 }
+
+local foundBossLayers = {}
 
 -- Create main frame
 local frame = CreateFrame("Frame", "WorldBossScanFrame", UIParent)
@@ -119,10 +110,6 @@ Background:SetPoint("BOTTOMLEFT", 3, 3)
 Background:SetPoint("TOPRIGHT", -3, -3)
 Background:SetTexCoord(0, 1, 0, 0.25)
 
--- Found bosses tracking
-local foundBosses = {}
-local bossHunts = {}
-
 -- Sound handling
 local lastPlayedSound = 0
 local function PlaySoundAlert()
@@ -134,6 +121,17 @@ local function PlaySoundAlert()
     lastPlayedSound = GetTime()
 end
 
+-- Get current layer
+local function GetCurrentLayer()
+    local guid = UnitGUID("player")
+    if guid then
+        local _, _, serverID = strsplit("-", guid)
+        return serverID
+    end
+    return nil
+end
+
+-- Invite Button to pop up on player's screen.
 local function CreateInviteButton(parentButton, playerName, bossName)
     if parentButton.inviteButton then
         parentButton.inviteButton:Hide()
@@ -145,62 +143,49 @@ local function CreateInviteButton(parentButton, playerName, bossName)
     inviteButton:SetText("Request Invite")
     inviteButton:SetScript("OnClick", function()
         SendChatMessage("inv", "WHISPER", nil, playerName)
-        bossHunts[bossName] = {
-            hunting = true,
-            leader = playerName,
-            npcID = tostring(WorldBossIDs[bossName])
-        }
-        parentButton:Hide()
-        inviteButton:Hide()
     end)
     
     parentButton.inviteButton = inviteButton
     inviteButton:Show()
-    
     return inviteButton
 end
 
+-- Show alert function for when boss is found
 local function ShowAlert(bossName, finderName)
-    if not foundBosses[bossName] or finderName then
-        if not finderName then
-            if IsInGuild() then
-                local message = "WSB:"..bossName..":"..UnitName("player")
-                C_ChatInfo.SendAddonMessage("WorldBossScan", message, "GUILD")
-            end
-            finderName = UnitName("player")
+    local currentLayer = GetCurrentLayer()
+    if not currentLayer then return end
+    
+    local bossLayerKey = bossName.."-"..currentLayer
+
+    if foundBossLayers[bossLayerKey] and (GetTime() - foundBossLayers[bossLayerKey]) < (4 * 3600) then -- 4 hours
+        return
+    end
+    
+    if not finderName then
+        foundBossLayers[bossLayerKey] = GetTime()
+        if IsInGuild() then
+            local message = "WSB:"..bossName..":"..UnitName("player")..":"..currentLayer
+            C_ChatInfo.SendAddonMessage("WorldBossScan", message, "GUILD")
         end
-        
-        if finderName == UnitName("player") then
-            scanner_button.text:SetText(bossName.." found!")
-            local macrotext = "/cleartarget\n/targetexact "..bossName
-            scanner_button:SetAttribute("macrotext", macrotext)
-        else
-            scanner_button.text:SetText(finderName.." found "..bossName.."!")
-            CreateInviteButton(scanner_button, finderName)
-        end
-        
-        -- Show button
-        scanner_button:Show()
-        
-        -- Play sound
-        PlaySoundAlert()
-        
-        -- Print to chat
-        if finderName == UnitName("player") then
-            print("|cffff0000[WorldBossScan]|r: "..bossName.." has been found!")
-        else
-            print("|cffff0000[WorldBossScan]|r: "..finderName.." has found "..bossName.."!")
-        end
-        
-        -- Auto-hide after 10 seconds
-        C_Timer.After(10, function()
-            scanner_button:Hide()
-            if scanner_button.inviteButton then
-                scanner_button.inviteButton:Hide()
-            end
-        end)
-        
-        foundBosses[bossName] = true
+        finderName = UnitName("player")
+    end
+
+    if finderName == UnitName("player") then
+        scanner_button.text:SetText(bossName.." found!")
+        local macrotext = "/cleartarget\n/targetexact "..bossName
+        scanner_button:SetAttribute("macrotext", macrotext)
+    else
+        scanner_button.text:SetText(finderName.." found "..bossName.."!")
+        CreateInviteButton(scanner_button, finderName, bossName)
+    end
+    
+    scanner_button:Show()
+    PlaySoundAlert()
+    
+    if finderName == UnitName("player") then
+        print("|cffff0000[WorldBossScan]|r: "..bossName.." has been found!")
+    else
+        print("|cffff0000[WorldBossScan]|r: "..finderName.." has found "..bossName.."!")
     end
 end
 
@@ -233,62 +218,20 @@ local function ScanForBosses()
     if (checking) then
         return
     end
-
+    
     checking = true
-
+    
     for bossName, _ in pairs(WorldBosses) do
         TargetUnit(bossName)
-        if ShouldScanForBoss(bossName) then
-            TargetUnit(bossName)
-            if (npcFound) then
-                CloseErrorPopUp()
-                ShowAlert(bossName)
-                npcFound = false
-            end
+        
+        if (npcFound) then
+            CloseErrorPopUp()
+            ShowAlert(bossName) 
+            npcFound = false
         end
-    end   
+    end
+    
     checking = false
-end
-
--- Manage spam for same boss spawn
-local function IsInSameLayerAsGroup()
-    if IsInRaid() or IsInGroup() then
-        local unitToCheck = IsInRaid() and "raid1" or "party1"
-        if UnitInPhase(unitToCheck) then
-            return true
-        end
-    end
-    return false
-end
-
-local function ShouldScanForBoss(bossName)
-    if not bossHunts[bossName] then
-        return true
-    end
-
-    -- If we're hunting this boss
-    if bossHunts[bossName].hunting then
-        if not IsInRaid() and not IsInGroup() then
-            bossHunts[bossName] = nil
-            return true
-        end
-
-        if not IsInSameLayerAsGroup() then
-            bossHunts[bossName] = nil
-            return true
-        end
-
-        local guid = UnitGUID("target")
-        if guid then
-            local _, _, _, _, _, npcID = strsplit("-", guid)
-            if npcID == bossHunts[bossName].npcID and UnitIsDead("target") then
-                bossHunts[bossName] = nil
-                return true
-            end
-        end
-        return false
-    end
-    return true
 end
 
 -- Register events
@@ -299,9 +242,6 @@ frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterEvent("CHAT_MSG_ADDON")
 frame:RegisterEvent("CHAT_MSG_MONSTER_YELL")
-frame:RegisterEvent("GROUP_JOINED")
-frame:RegisterEvent("GROUP_LEFT")
-frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 
 -- Register addon prefix
 C_ChatInfo.RegisterAddonMessagePrefix("WorldBossScan")
@@ -316,17 +256,20 @@ frame:SetScript("OnEvent", function(self, event, ...)
         
     elseif event == "ZONE_CHANGED" or event == "ZONE_CHANGED_NEW_AREA" then
         C_Timer.After(1, ScanForBosses)
-        wipe(foundBosses)
         
     elseif event == "CHAT_MSG_ADDON" then
         local prefix, message, channel, sender = ...
         if prefix == "WorldBossScan" and channel == "GUILD" then
             -- Parse the message
-            local command, bossName, playerName = strsplit(":", message)
+            local command, bossName, playerName, layer = strsplit(":", message)
             if command == "WSB" and sender ~= UnitName("player") then
+                -- Record this boss+layer combination
+                local bossLayerKey = bossName.."-"..layer
+                foundBossLayers[bossLayerKey] = GetTime()
                 ShowAlert(bossName, playerName)
             end
         end
+        
     elseif event == "CHAT_MSG_MONSTER_YELL" then
         local message, monsterName = ...
         for bossName, yells in pairs(BossYells) do
@@ -340,33 +283,10 @@ frame:SetScript("OnEvent", function(self, event, ...)
                     for _, combatYell in ipairs(yells.combat) do
                         if message == combatYell then
                             print("|cffff0000[WorldBossScan]|r: "..bossName.." is in combat!")
-                            -- Optionally show a different kind of alert or update existing alert
                         end
                     end
                 end
             end
-        end
-    elseif event == "GROUP_JOINED" then
-        -- Check if we joined the group we requested
-        for bossName, hunt in pairs(bossHunts) do
-            if hunt.hunting and IsInGroup() then
-                local numMembers = IsInRaid() and GetNumGroupMembers() or GetNumSubgroupMembers()
-                for i = 1, numMembers do
-                    local unit = IsInRaid() and "raid"..i or "party"..i
-                    if UnitName(unit) == hunt.leader then
-                        hunt.confirmed = true
-                        break
-                    end
-                end
-            end
-        end
-        
-    elseif event == "GROUP_LEFT" then
-        wipe(bossHunts)
-        
-    elseif event == "ZONE_CHANGED_NEW_AREA" then
-        if not IsInSameLayerAsGroup() then
-            wipe(bossHunts)
         end
     end
 end)
@@ -381,13 +301,33 @@ scanner_button:SetScript("OnClick", function(self, button)
     end
 end)
 
+-- Cleanup timer for old entries
+C_Timer.NewTicker(3600, function()
+    local now = GetTime()
+    for key, timestamp in pairs(foundBossLayers) do
+        if (now - timestamp) > (4 * 3600) then
+            foundBossLayers[key] = nil
+        end
+    end
+end)
+
 -- Test command
 SLASH_WORLDBOSSSCAN1 = '/wbs'
 SlashCmdList["WORLDBOSSSCAN"] = function(msg)
     if msg == "test" then
-        -- Force a simulated alert, ignoring the foundBosses table
-        foundBosses["Undertaker Mordo"] = nil  -- Reset this boss so we can test again
-        ShowAlert("Undertaker Mordo", "TestPlayer")
+        -- Force a simulated alert
+        local currentLayer = GetCurrentLayer() or "1"
+        local testBossName = "Undertaker Mordo"
+        local bossLayerKey = testBossName.."-"..currentLayer
+        foundBossLayers[bossLayerKey] = nil  -- Reset this boss so we can test again
+        ShowAlert(testBossName, "TestPlayer")
+    elseif msg == "joined" then
+        -- Simulate joining the test group
+        local currentLayer = GetCurrentLayer() or "1"
+        local testBossName = "Undertaker Mordo"
+        local bossLayerKey = testBossName.."-"..currentLayer
+        foundBossLayers[bossLayerKey] = GetTime()
+        print("|cffff0000[WorldBossScan]|r: Simulated joining TestPlayer's group - scanning paused for "..testBossName.." on current layer.")
     else
         print("WorldBossScan commands:")
         print("/wbs test - Test the guild alert system")
