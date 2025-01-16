@@ -9,6 +9,59 @@ local WorldBosses = {
     ["Undertaker Mordo"] = true  -- Test NPC
 }
 
+local WorldBossIDs = {
+    ["Azuregos"] = 6109,
+    ["Lord Kazzak"] = 12397,
+    ["Emeriss"] = 14889,
+    ["Lethon"] = 14888,
+    ["Taerar"] = 14890,
+    ["Ysondre"] = 14887,
+    ["Undertaker Mordo"] = 1666  -- Test NPC
+}
+
+local BossYells = {
+    ["Azuregos"] = {
+        spawn = "This place is under my protection. The mysteries of the arcane shall remain inviolate.",
+        combat = {
+            "Such is the price of curiosity.",
+            "Come, little ones. Face me!"
+        }
+    },
+    ["Lord Kazzak"] = {
+        spawn = "I remember well the sting of defeat at the conclusion of the Third War. I have waited far too long for my revenge. Now the shadow of the Legion falls over this world. It is only a matter of time until all of your failed creation... is undone.",
+        combat = {
+            "All mortals will perish!",
+            "The Legion will conquer all!",
+            "Your own strength feeds me!"
+        },
+        death = "The Legion... will never... fall."
+    },
+    ["Ysondre"] = {
+        combat = {
+            "The Dragons of Nightmare will conquer all!",
+            "Hope is a DISEASE of the soul! This land shall wither and die!"
+        }
+    },
+    ["Lethon"] = {
+        combat = {
+            "I can sense the SHADOW on your hearts. There can be no rest for the wicked!",
+            "Your wicked souls shall feed my power!"
+        }
+    },
+    ["Emeriss"] = {
+        combat = {
+            "Hope is a DISEASE of the soul! This land shall wither and die!",
+            "Nature's rage comes full circle! Earth and sky shall burn!"
+        }
+    },
+    ["Taerar"] = {
+        combat = {
+            "Peace is but a fleeting dream! Let the NIGHTMARE reign!",
+            "Children of Madness - I release you upon this world!"
+        }
+    }
+}
+
 -- Create main frame
 local frame = CreateFrame("Frame", "WorldBossScanFrame", UIParent)
 
@@ -34,6 +87,12 @@ end)
 scanner_button:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
 end)
+
+-- Creat Close Button
+local closeButton = CreateFrame("Button", nil, scanner_button, "UIPanelCloseButton")
+closeButton:SetPoint("TOPRIGHT", -4, -4)
+closeButton:SetSize(16, 16)
+
 
 -- Add border texture
 local TitleBackground = scanner_button:CreateTexture(nil, "BORDER")
@@ -62,22 +121,20 @@ Background:SetTexCoord(0, 1, 0, 0.25)
 
 -- Found bosses tracking
 local foundBosses = {}
+local bossHunts = {}
 
 -- Sound handling
 local lastPlayedSound = 0
 local function PlaySoundAlert()
-    -- Don't play sounds too frequently
     if (GetTime() - lastPlayedSound < 2) then 
         return
     end
     
-    -- Play raid warning sound
     PlaySound(8959)
     lastPlayedSound = GetTime()
 end
 
-local function CreateInviteButton(parentButton, playerName)
-    -- Hide previous invite button if it exists
+local function CreateInviteButton(parentButton, playerName, bossName)
     if parentButton.inviteButton then
         parentButton.inviteButton:Hide()
     end
@@ -88,6 +145,11 @@ local function CreateInviteButton(parentButton, playerName)
     inviteButton:SetText("Request Invite")
     inviteButton:SetScript("OnClick", function()
         SendChatMessage("inv", "WHISPER", nil, playerName)
+        bossHunts[bossName] = {
+            hunting = true,
+            leader = playerName,
+            npcID = tostring(WorldBossIDs[bossName])
+        }
         parentButton:Hide()
         inviteButton:Hide()
     end)
@@ -99,8 +161,7 @@ local function CreateInviteButton(parentButton, playerName)
 end
 
 local function ShowAlert(bossName, finderName)
-    if not foundBosses[bossName] or finderName then  -- Allow showing if it's from another player
-        -- If we found it, send guild alert
+    if not foundBosses[bossName] or finderName then
         if not finderName then
             if IsInGuild() then
                 local message = "WSB:"..bossName..":"..UnitName("player")
@@ -109,15 +170,12 @@ local function ShowAlert(bossName, finderName)
             finderName = UnitName("player")
         end
         
-        -- Update button text
         if finderName == UnitName("player") then
             scanner_button.text:SetText(bossName.." found!")
-            -- Set up targeting macro
             local macrotext = "/cleartarget\n/targetexact "..bossName
             scanner_button:SetAttribute("macrotext", macrotext)
         else
             scanner_button.text:SetText(finderName.." found "..bossName.."!")
-            -- Create invite request button
             CreateInviteButton(scanner_button, finderName)
         end
         
@@ -172,31 +230,65 @@ end
 -- Scanning function 
 local checking = false
 local function ScanForBosses()
-    -- If already scanning, skip
     if (checking) then
         return
     end
-    
+
     checking = true
-    
-    -- Loop through our boss list
+
     for bossName, _ in pairs(WorldBosses) do
-        -- Try to silently target the boss
         TargetUnit(bossName)
-        
-        -- If we got a forbidden action, we found the boss
-        if (npcFound) then
-            -- Hide error popup
-            CloseErrorPopUp()
-            
-            -- Show alert
-            ShowAlert(bossName)
-            
-            npcFound = false
+        if ShouldScanForBoss(bossName) then
+            TargetUnit(bossName)
+            if (npcFound) then
+                CloseErrorPopUp()
+                ShowAlert(bossName)
+                npcFound = false
+            end
+        end
+    end   
+    checking = false
+end
+
+-- Manage spam for same boss spawn
+local function IsInSameLayerAsGroup()
+    if IsInRaid() or IsInGroup() then
+        local unitToCheck = IsInRaid() and "raid1" or "party1"
+        if UnitInPhase(unitToCheck) then
+            return true
         end
     end
-    
-    checking = false
+    return false
+end
+
+local function ShouldScanForBoss(bossName)
+    if not bossHunts[bossName] then
+        return true
+    end
+
+    -- If we're hunting this boss
+    if bossHunts[bossName].hunting then
+        if not IsInRaid() and not IsInGroup() then
+            bossHunts[bossName] = nil
+            return true
+        end
+
+        if not IsInSameLayerAsGroup() then
+            bossHunts[bossName] = nil
+            return true
+        end
+
+        local guid = UnitGUID("target")
+        if guid then
+            local _, _, _, _, _, npcID = strsplit("-", guid)
+            if npcID == bossHunts[bossName].npcID and UnitIsDead("target") then
+                bossHunts[bossName] = nil
+                return true
+            end
+        end
+        return false
+    end
+    return true
 end
 
 -- Register events
@@ -206,6 +298,10 @@ frame:RegisterEvent("ZONE_CHANGED")
 frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 frame:RegisterEvent("CHAT_MSG_ADDON")
+frame:RegisterEvent("CHAT_MSG_MONSTER_YELL")
+frame:RegisterEvent("GROUP_JOINED")
+frame:RegisterEvent("GROUP_LEFT")
+frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 
 -- Register addon prefix
 C_ChatInfo.RegisterAddonMessagePrefix("WorldBossScan")
@@ -230,6 +326,47 @@ frame:SetScript("OnEvent", function(self, event, ...)
             if command == "WSB" and sender ~= UnitName("player") then
                 ShowAlert(bossName, playerName)
             end
+        end
+    elseif event == "CHAT_MSG_MONSTER_YELL" then
+        local message, monsterName = ...
+        for bossName, yells in pairs(BossYells) do
+            if monsterName and monsterName:match(bossName) then
+                -- If it's a spawn yell
+                if message == yells.spawn then
+                    print("|cffff0000[WorldBossScan]|r: "..bossName.." has spawned!")
+                    ShowAlert(bossName)
+                -- If it's a combat yell
+                elseif yells.combat then
+                    for _, combatYell in ipairs(yells.combat) do
+                        if message == combatYell then
+                            print("|cffff0000[WorldBossScan]|r: "..bossName.." is in combat!")
+                            -- Optionally show a different kind of alert or update existing alert
+                        end
+                    end
+                end
+            end
+        end
+    elseif event == "GROUP_JOINED" then
+        -- Check if we joined the group we requested
+        for bossName, hunt in pairs(bossHunts) do
+            if hunt.hunting and IsInGroup() then
+                local numMembers = IsInRaid() and GetNumGroupMembers() or GetNumSubgroupMembers()
+                for i = 1, numMembers do
+                    local unit = IsInRaid() and "raid"..i or "party"..i
+                    if UnitName(unit) == hunt.leader then
+                        hunt.confirmed = true
+                        break
+                    end
+                end
+            end
+        end
+        
+    elseif event == "GROUP_LEFT" then
+        wipe(bossHunts)
+        
+    elseif event == "ZONE_CHANGED_NEW_AREA" then
+        if not IsInSameLayerAsGroup() then
+            wipe(bossHunts)
         end
     end
 end)
