@@ -52,6 +52,8 @@ local BossYells = {
 }
 
 local foundBossLayers = {}
+WorldBossScanDB = WorldBossScanDB or {}
+WorldBossScanDB.buttonPosition = WorldBossScanDB.buttonPosition or { x = 0, y = -50 } -- Default top center
 
 -- Create main frame
 local frame = CreateFrame("Frame", "WorldBossScanFrame", UIParent)
@@ -68,15 +70,21 @@ scanner_button:RegisterForClicks("RightButtonUp", "LeftButtonUp")
 scanner_button:SetAttribute("*type1", "macro")
 scanner_button:SetAttribute("*type2", "closebutton")
 scanner_button:SetNormalTexture([[Interface\AchievementFrame\UI-Achievement-Parchment-Horizontal-Desaturated]])
-scanner_button:SetPoint("BOTTOM", UIParent, 0, 128)
 scanner_button:SetMovable(true)
 scanner_button:EnableMouse(true)
 scanner_button:RegisterForDrag("LeftButton")
+if WorldBossScanDB.buttonPosition then
+    scanner_button:SetPoint("TOP", UIParent, "TOP", WorldBossScanDB.buttonPosition.x, WorldBossScanDB.buttonPosition.y)
+else
+    scanner_button:SetPoint("TOP", UIParent, "TOP", 0, -50)
+end
 scanner_button:SetScript("OnDragStart", function(self)
     self:StartMoving()
 end)
 scanner_button:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
+    local point, _, relativePoint, xOfs, yOfs = self:GetPoint()
+    WorldBossScanDB.buttonPosition = { x = xOfs, y = yOfs }
 end)
 
 -- Creat Close Button
@@ -138,7 +146,7 @@ local function CreateInviteButton(parentButton, playerName, bossName)
     end
     
     local inviteButton = CreateFrame("Button", nil, parentButton, "UIPanelButtonTemplate")
-    inviteButton:SetPoint("TOP", parentButton, "BOTTOM", 0, -5)
+    inviteButton:SetPoint("TOP", parentButton, "TOP", 0, -20)
     inviteButton:SetSize(100, 25)
     inviteButton:SetText("Request Invite")
     inviteButton:SetScript("OnClick", function()
