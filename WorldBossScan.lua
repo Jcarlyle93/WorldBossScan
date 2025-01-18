@@ -228,7 +228,8 @@ local function ShowAlert(bossName, finderName)
     if not finderName then
         foundBossLayers[bossLayerKey] = GetTime()
         if IsInGuild() then
-            local message = "WSB:"..bossName..":"..UnitName("player")..":"..currentLayer
+            local playerFullName = UnitName("player").."-"..GetRealmName()
+            local message = "WSB:"..bossName..":"..playerFullName..":"..currentLayer
             C_ChatInfo.SendAddonMessage("WorldBossScan", message, "GUILD")
         end
         finderName = UnitName("player")
@@ -337,7 +338,8 @@ frame:SetScript("OnEvent", function(self, event, ...)
         if prefix == "WorldBossScan" and channel == "GUILD" then
             -- Parse the message
             local command, bossName, playerName, layer = strsplit(":", message)
-            if command == "WSB" and sender ~= UnitName("player") then
+            local playerFullName = UnitName("player").."-"..GetRealmName()
+            if command == "WSB" and sender ~= playerFullName then
                 -- Record this boss+layer combination
                 local bossLayerKey = bossName.."-"..layer
                 foundBossLayers[bossLayerKey] = GetTime()
