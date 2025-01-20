@@ -193,16 +193,17 @@ function UpdateScanStatus()
     local layer = GetCurrentLayer()
     local currentZone = C_Map.GetBestMapForUnit("player")
     local bossesInZone = {}
+    local hasWorldBossInZone = false
 
     -- Check if current zone has any world bosses
     for bossName, bossInfo in pairs(WorldBosses) do
         if bossInfo.zones[currentZone] then
             table.insert(bossesInZone, bossName)
+            hasWorldBossInZone = true
         end
     end
 
-    -- Update status text
-    if #bossesInZone > 0 then
+    if hasWorldBossInZone then
         local bossList = table.concat(bossesInZone, ", ")
         scanStatus.text:SetText(string.format("Layer %s: Scanning for %s", layer, bossList))
         scanStatus:Show()
