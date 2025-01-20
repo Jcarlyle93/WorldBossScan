@@ -42,9 +42,5 @@ WorldBosses = {
             [1444] = true, -- Feralas
             [1423] = true  -- The Hinterlands
         }
-    },
-    ["Undertaker Mordo"] = {
-        id = 1666,
-        zones = { [1420] = true } -- Tirisfal Glades
     }
 }
