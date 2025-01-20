@@ -166,15 +166,6 @@ local function InitializeLayerDetection()
     end)
 end
 
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_LOGIN" then
-        InitializeLayerDetection()
-        -- rest of your login code
-    end
-    -- rest of your event handling
-end)
-
 local function GetCurrentLayer()
     -- Use NWB_CurrentLayer global
     if NWB_CurrentLayer and NWB_CurrentLayer > 0 then
@@ -364,7 +355,6 @@ frame:SetScript("OnEvent", function(self, event, ...)
             RespawnTracker:Initialize()
             UpdateScanStatus()
             ScanForBosses() 
-            scanStatus:Show()
             MonitorLayerStatus()
         end)    
     elseif event == "ZONE_CHANGED" or event == "ZONE_CHANGED_NEW_AREA" then
@@ -373,7 +363,6 @@ frame:SetScript("OnEvent", function(self, event, ...)
             RespawnTracker:Initialize()
             UpdateScanStatus()
             ScanForBosses() 
-            scanStatus:Show() 
             MonitorLayerStatus()
         end)    
     elseif event == "CHAT_MSG_ADDON" then
