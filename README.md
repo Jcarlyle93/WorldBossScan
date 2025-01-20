@@ -5,23 +5,25 @@
 /wbs test - Tests the guild alert system
 /wbs debug - Shows debug info for your current target
 
+# Boss Alias
+azu - Azuregos
+kaz - Lord Kazzak
+eme - Emeriss
+let - Lethon
+tae - Taerar
+yso - Ysondre
+
+
 # Boss Cooldowns
 
 /wbs cd or /wbs cooldowns - Shows cooldowns for all world bosses across all layers
-/wbs azu - Shows cooldowns for Azuregos
-/wbs kaz - Shows cooldowns for Lord Kazzak
-/wbs eme - Shows cooldowns for Emeriss
-/wbs let - Shows cooldowns for Lethon
-/wbs tae - Shows cooldowns for Taerar
-/wbs yso - Shows cooldowns for Ysondre
+/wbs <alias> Shows cooldowns for that specific boss.
 
 # Recording Kills
 
-/wbs kill <bossname> - Manually records a boss kill on your current layer
+/wbs kill <alias> - Manually records a boss kill on your current layer at that current servertime.
 
-Example: /wbs kill Azuregos
-Valid boss names: Azuregos, Lord Kazzak, Emeriss, Lethon, Taerar, Ysondre
-
+Example: /wbs kill Azu
 
 # Testing Features
 
