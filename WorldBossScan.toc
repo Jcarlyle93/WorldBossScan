@@ -2,8 +2,11 @@
 ## Title: WorldBossScan
 ## Notes: Scans for world bosses and manages guild invites
 ## Author: Indelible@Discord
-## Version: 1.4
+## Version: 1.5
 ## SavedVariables: WorldBossScanDB
+## Dependencies: NovaWorldBuffs
 
 WorldBossList.lua
+WorldBossYells.lua
+RespawnTracker.lua
 WorldBossScan.lua

@@ -1,0 +1,6 @@
+[submodule "libs/herebedragons"]
+	path = libs/herebedragons
+	url = https://repos.curseforge.com/wow/herebedragons
+[submodule "libs/LibStub"]
+	path = libs/LibStub
+	url = https://github.com/lua-wow/LibStub.git
